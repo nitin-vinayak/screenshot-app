@@ -11,21 +11,46 @@ class ScreenshotProcessor {
     }()
     
     func process(image: UIImage, context: ModelContext) {
-        guard let cgImage = image.cgImage else { return }
+        let small = resized(image)
+        guard let smallCG = small.cgImage else { return }
+        let text = extractText(from: smallCG)
+        classify(text: text, image: image, context: context)
+    }
+    
+    private func extractText(from cgImage: CGImage) -> String {
+        var result = ""
+        let semaphore = DispatchSemaphore(value: 0)
         
-        let ocrRequest = VNRecognizeTextRequest { [weak self] request, _ in
-            let text = (request.results as? [VNRecognizedTextObservation])?
+        let request = VNRecognizeTextRequest { req, _ in
+            result = (req.results as? [VNRecognizedTextObservation])?
                 .compactMap { $0.topCandidates(1).first?.string }
                 .joined(separator: " ") ?? ""
-            
-            self?.classify(text: text, image: image, context: context)
+            semaphore.signal()
         }
-        ocrRequest.recognitionLevel = .accurate
-        try? VNImageRequestHandler(cgImage: cgImage).perform([ocrRequest])
+        request.recognitionLevel = .fast
+        try? VNImageRequestHandler(cgImage: cgImage).perform([request])
+        semaphore.wait()
+        return result
+    }
+    
+    private func resized(_ image: UIImage, maxDimension: CGFloat = 448) -> UIImage {
+        let size = image.size
+        guard size.width > 0, size.height > 0 else { return image }
+        let scale = min(maxDimension / size.width, maxDimension / size.height, 1.0)
+        let newSize = CGSize(width: max(1, size.width * scale), height: max(1, size.height * scale))
+        let renderer = UIGraphicsImageRenderer(size: newSize)
+        return renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: newSize))
+        }
     }
     
     private func classify(text: String, image: UIImage, context: ModelContext) {
         guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else { return }
+        
+        let smallImage = resized(image)
+        
+        guard let imageData = smallImage.jpegData(compressionQuality: 0.6),
+              let base64Image = Optional(imageData.base64EncodedString()) else { return }
         
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -38,10 +63,6 @@ class ScreenshotProcessor {
         Only return the category label, nothing else.
         Additional text found in screenshot: \(text)
         """
-        
-        // Convert image to base64
-        guard let imageData = image.jpegData(compressionQuality: 0.5),
-              let base64Image = Optional(imageData.base64EncodedString()) else { return }
         
         let body: [String: Any] = [
             "model": "gpt-4o-mini",

@@ -45,7 +45,15 @@ class ShareViewController: UIViewController {
 
         try? FileManager.default.createDirectory(at: containerURL, withIntermediateDirectories: true)
 
-        if let data = image.jpegData(compressionQuality: 0.9) {
+        let maxDimension: CGFloat = 768
+        let size = image.size
+        guard size.width > 0, size.height > 0 else { return }
+        let scale = min(maxDimension / size.width, maxDimension / size.height, 1.0)
+        let newSize = CGSize(width: max(1, size.width * scale), height: max(1, size.height * scale))
+        let renderer = UIGraphicsImageRenderer(size: newSize)
+        let resized = renderer.image { _ in image.draw(in: CGRect(origin: .zero, size: newSize)) }
+
+        if let data = resized.jpegData(compressionQuality: 0.5) {
             let fileURL = containerURL.appendingPathComponent("\(UUID().uuidString).jpg")
             try? data.write(to: fileURL)
         }

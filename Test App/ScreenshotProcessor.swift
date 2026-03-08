@@ -1,9 +1,3 @@
-//
-//  ScreenshotProcessor.swift
-//  Test App
-//
-//  Created by Nitin Vinayak on 08/03/26.
-//
 import Vision
 import UIKit
 import SwiftData
@@ -12,61 +6,84 @@ class ScreenshotProcessor {
     
     static let shared = ScreenshotProcessor()
     
+    private let apiKey: String = {
+        Bundle.main.object(forInfoDictionaryKey: "OPENAI_API_KEY") as? String ?? ""
+    }()
+    
     func process(image: UIImage, context: ModelContext) {
         guard let cgImage = image.cgImage else { return }
         
-        var extractedText = ""
-        let group = DispatchGroup()
-        
-        // Step 1: OCR
-        group.enter()
-        let ocrRequest = VNRecognizeTextRequest { request, _ in
-            extractedText = (request.results as? [VNRecognizedTextObservation])?
+        let ocrRequest = VNRecognizeTextRequest { [weak self] request, _ in
+            let text = (request.results as? [VNRecognizedTextObservation])?
                 .compactMap { $0.topCandidates(1).first?.string }
                 .joined(separator: " ") ?? ""
-            group.leave()
+            
+            self?.classify(text: text, image: image, context: context)
         }
         ocrRequest.recognitionLevel = .accurate
         try? VNImageRequestHandler(cgImage: cgImage).perform([ocrRequest])
-        
-        // Step 2: Classify
-        group.enter()
-        let classifyRequest = VNClassifyImageRequest { [weak self] request, _ in
-            let observations = request.results as? [VNClassificationObservation] ?? []
-            let category = self?.mapToCategory(observations: observations, text: extractedText) ?? "Other"
-            
-            // Step 3: Save to SwiftData
-            DispatchQueue.main.async {
-                guard let imageData = image.jpegData(compressionQuality: 0.9) else { return }
-                let screenshot = Screenshot(imageData: imageData, category: category, extractedText: extractedText)
-                context.insert(screenshot)
-                try? context.save()
-            }
-            group.leave()
-        }
-        try? VNImageRequestHandler(cgImage: cgImage).perform([classifyRequest])
     }
     
-    private func mapToCategory(observations: [VNClassificationObservation], text: String) -> String {
-        let textLower = text.lowercased()
+    private func classify(text: String, image: UIImage, context: ModelContext) {
+        guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else { return }
         
-        if textLower.contains("spotify") || textLower.contains("apple music") || textLower.contains("soundcloud") {
-            return "Music"
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let prompt = """
+        Look at this screenshot and return a single short category label (1-2 words max).
+        Be specific but concise. Examples: "Jet Engines", "Sneakers", "Italian Food", "Architecture", "Typography".
+        Only return the category label, nothing else.
+        Additional text found in screenshot: \(text)
+        """
+        
+        // Convert image to base64
+        guard let imageData = image.jpegData(compressionQuality: 0.5),
+              let base64Image = Optional(imageData.base64EncodedString()) else { return }
+        
+        let body: [String: Any] = [
+            "model": "gpt-4o-mini",
+            "messages": [[
+                "role": "user",
+                "content": [
+                    [
+                        "type": "image_url",
+                        "image_url": ["url": "data:image/jpeg;base64,\(base64Image)"]
+                    ],
+                    [
+                        "type": "text",
+                        "text": prompt
+                    ]
+                ]
+            ]],
+            "max_tokens": 10,
+            "temperature": 0
+        ]
+        
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        
+        URLSession.shared.dataTask(with: request) { [weak self] data, _, _ in
+            guard let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let choices = json["choices"] as? [[String: Any]],
+                  let message = choices.first?["message"] as? [String: Any],
+                  let category = message["content"] as? String else {
+                self?.save(image: image, category: "Other", text: text, context: context)
+                return
+            }
+            
+            self?.save(image: image, category: category.trimmingCharacters(in: .whitespacesAndNewlines), text: text, context: context)
+        }.resume()
+    }
+    
+    private func save(image: UIImage, category: String, text: String, context: ModelContext) {
+        DispatchQueue.main.async {
+            guard let imageData = image.jpegData(compressionQuality: 0.9) else { return }
+            let screenshot = Screenshot(imageData: imageData, category: category, extractedText: text)
+            context.insert(screenshot)
+            try? context.save()
         }
-        if textLower.contains("flight") || textLower.contains("boarding") || textLower.contains("gate") {
-            return "Travel"
-        }
-        if textLower.contains("recipe") || textLower.contains("ingredients") {
-            return "Food"
-        }
-        
-        let topLabels = observations.prefix(5).map { $0.identifier.lowercased() }
-        
-        if topLabels.contains(where: { $0.contains("food") || $0.contains("drink") }) { return "Food" }
-        if topLabels.contains(where: { $0.contains("fashion") || $0.contains("clothing") }) { return "Fashion" }
-        if topLabels.contains(where: { $0.contains("architecture") || $0.contains("interior") }) { return "Design" }
-        if topLabels.contains(where: { $0.contains("map") || $0.contains("travel") }) { return "Travel" }
-        
-        return "Other"
     }
 }

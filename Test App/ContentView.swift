@@ -8,10 +8,10 @@ struct ContentView: View {
 
     let columns = [GridItem(.flexible()), GridItem(.flexible())]
 
-    var categories: [(name: String, count: Int)] {
+    var categories: [(name: String, screenshots: [Screenshot])] {
         Dictionary(grouping: screenshots, by: \.category)
-            .map { (name: $0.key, count: $0.value.count) }
-            .sorted { $0.count > $1.count }
+            .map { (name: $0.key, screenshots: $0.value) }
+            .sorted { $0.screenshots.count > $1.screenshots.count }
     }
 
     var body: some View {
@@ -32,10 +32,10 @@ struct ContentView: View {
                     }
                     .padding()
                 } else {
-                    LazyVGrid(columns: columns, spacing: 12) {
+                    LazyVGrid(columns: columns, spacing: 16) {
                         ForEach(categories, id: \.name) { category in
                             NavigationLink(destination: CategoryView(categoryName: category.name)) {
-                                CategoryCard(name: category.name, count: category.count)
+                                CategoryCard(name: category.name, screenshots: category.screenshots)
                             }
                             .buttonStyle(.plain)
                         }
@@ -44,6 +44,9 @@ struct ContentView: View {
                 }
             }
             .navigationTitle("Your Inspiration")
+            .onAppear {
+                processInbox()
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Test") {
@@ -58,29 +61,97 @@ struct ContentView: View {
             }
         }
     }
+
+    private func processInbox() {
+        guard let inboxURL = FileManager.default
+            .containerURL(forSecurityApplicationGroupIdentifier: "group.com.nitinvinayak.screenshotapp")?
+            .appendingPathComponent("Inbox") else { return }
+
+        let files = (try? FileManager.default.contentsOfDirectory(
+            at: inboxURL,
+            includingPropertiesForKeys: nil
+        )) ?? []
+
+        for fileURL in files {
+            if let image = UIImage(contentsOfFile: fileURL.path) {
+                ScreenshotProcessor.shared.process(image: image, context: modelContext)
+                try? FileManager.default.removeItem(at: fileURL)
+            }
+        }
+    }
 }
 
 struct CategoryCard: View {
     let name: String
-    let count: Int
+    let screenshots: [Screenshot]
+
+    var thumbs: [UIImage] {
+        screenshots.prefix(3).compactMap { $0.image }
+    }
 
     var body: some View {
-        RoundedRectangle(cornerRadius: 16)
-            .fill(Color(.secondarySystemBackground))
-            .aspectRatio(1, contentMode: .fit)
-            .overlay(
-                VStack(alignment: .leading, spacing: 4) {
-                    Spacer()
-                    Text(name)
-                        .font(.headline)
-                        .fontWeight(.bold)
-                    Text("\(count) items")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 8) {
+            ZStack {
+                if thumbs.count >= 3, let img = thumbs[safe: 2] {
+                    Image(uiImage: img)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(maxWidth: .infinity)
+                        .aspectRatio(3/4, contentMode: .fit)
+                        .clipped()
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .rotationEffect(.degrees(-6))
+                        .offset(x: -8, y: 4)
+                        .opacity(0.7)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(14)
-            )
+
+                if thumbs.count >= 2, let img = thumbs[safe: 1] {
+                    Image(uiImage: img)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(maxWidth: .infinity)
+                        .aspectRatio(3/4, contentMode: .fit)
+                        .clipped()
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .rotationEffect(.degrees(-3))
+                        .offset(x: -4, y: 2)
+                        .opacity(0.85)
+                }
+
+                if let img = thumbs[safe: 0] {
+                    Image(uiImage: img)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(maxWidth: .infinity)
+                        .aspectRatio(3/4, contentMode: .fit)
+                        .clipped()
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                } else {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color(.secondarySystemBackground))
+                        .aspectRatio(3/4, contentMode: .fit)
+                }
+            }
+            .padding(.horizontal, 10)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.primary)
+                Text("\(screenshots.count) item\(screenshots.count == 1 ? "" : "s")")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 4)
+        }
+        .padding(.bottom, 8)
+    }
+}
+
+extension Collection {
+    subscript(safe index: Index) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }
 

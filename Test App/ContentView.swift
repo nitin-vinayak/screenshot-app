@@ -3,6 +3,7 @@ import SwiftData
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @Query private var screenshots: [Screenshot]
     @State private var showImagePicker = false
 
@@ -71,6 +72,11 @@ struct ContentView: View {
             .navigationTitle("Your Inspiration")
             .onAppear {
                 processInbox()
+            }
+            .onChange(of: scenePhase) { _, newPhase in
+                if newPhase == .active {
+                    processInbox()
+                }
             }
             .sheet(isPresented: $showImagePicker) {
                 ImagePicker { image in

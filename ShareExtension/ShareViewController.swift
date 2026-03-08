@@ -16,8 +16,18 @@ class ShareViewController: UIViewController {
 
         for attachment in attachments {
             if attachment.hasItemConformingToTypeIdentifier("public.image") {
-                attachment.loadFileRepresentation(forTypeIdentifier: "public.image") { [weak self] url, error in
-                    if let url = url, let image = UIImage(contentsOfFile: url.path) {
+                attachment.loadItem(forTypeIdentifier: "public.image", options: nil) { [weak self] data, error in
+                    var image: UIImage?
+                    
+                    if let uiImage = data as? UIImage {
+                        image = uiImage
+                    } else if let nsData = data as? NSData {
+                        image = UIImage(data: nsData as Data)
+                    } else if let url = data as? URL {
+                        image = UIImage(contentsOfFile: url.path)
+                    }
+                    
+                    if let image = image {
                         self?.save(image: image)
                     }
                     self?.done()

@@ -6,6 +6,7 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Query private var screenshots: [Screenshot]
     @State private var showImagePicker = false
+    @State private var showSearch = false
 
     let spacing: CGFloat = 16
     var cardWidth: CGFloat {
@@ -27,7 +28,7 @@ struct ContentView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .bottomTrailing) {
+            ZStack(alignment: .bottom) {
                 ScrollView {
                     if screenshots.isEmpty {
                         VStack(spacing: 12) {
@@ -56,16 +57,32 @@ struct ContentView: View {
                     }
                 }
 
-                Button {
-                    showImagePicker = true
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 56, height: 56)
-                        .background(Color.black)
-                        .clipShape(Circle())
-                        .shadow(radius: 4)
+                HStack {
+                    Button {
+                        showSearch = true
+                    } label: {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 56, height: 56)
+                            .background(Color.black)
+                            .clipShape(Circle())
+                            .shadow(radius: 4)
+                    }
+
+                    Spacer()
+
+                    Button {
+                        showImagePicker = true
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 56, height: 56)
+                            .background(Color.black)
+                            .clipShape(Circle())
+                            .shadow(radius: 4)
+                    }
                 }
                 .padding(24)
             }
@@ -82,6 +99,9 @@ struct ContentView: View {
                 ImagePicker { image in
                     ScreenshotProcessor.shared.process(image: image, context: modelContext)
                 }
+            }
+            .sheet(isPresented: $showSearch) {
+                SearchView()
             }
         }
     }

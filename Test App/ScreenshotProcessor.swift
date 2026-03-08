@@ -58,9 +58,10 @@ class ScreenshotProcessor {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
         let prompt = """
-        Look at this screenshot and return a single short category label (1-2 words max).
-        Be specific but concise. Examples: "Jet Engines", "Sneakers", "Italian Food", "Architecture", "Typography".
-        Only return the category label, nothing else.
+        Look at this screenshot and return a JSON object with exactly two fields:
+        - "category": a short category label (1-2 words). Examples: "Jet Engines", "Sneakers", "Italian Food", "Architecture", "Typography".
+        - "name": a short descriptive name for this specific screenshot (3-6 words). Examples: "Red Nike Air Max", "Pasta Carbonara Recipe", "Tokyo Street at Night".
+        Return only valid JSON, nothing else. No markdown, no backticks.
         Additional text found in screenshot: \(text)
         """
         
@@ -79,7 +80,7 @@ class ScreenshotProcessor {
                     ]
                 ]
             ]],
-            "max_tokens": 10,
+            "max_tokens": 60,
             "temperature": 0
         ]
         
@@ -90,19 +91,39 @@ class ScreenshotProcessor {
                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let choices = json["choices"] as? [[String: Any]],
                   let message = choices.first?["message"] as? [String: Any],
-                  let category = message["content"] as? String else {
-                self?.save(image: image, category: "Other", text: text, context: context)
+                  let content = message["content"] as? String else {
+                self?.save(image: image, category: "Other", name: nil, text: text, context: context)
                 return
             }
             
-            self?.save(image: image, category: category.trimmingCharacters(in: .whitespacesAndNewlines), text: text, context: context)
+            let cleaned = content
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .replacingOccurrences(of: "```json", with: "")
+                .replacingOccurrences(of: "```", with: "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            guard let contentData = cleaned.data(using: .utf8),
+                  let parsed = try? JSONSerialization.jsonObject(with: contentData) as? [String: Any],
+                  let category = parsed["category"] as? String,
+                  let name = parsed["name"] as? String else {
+                self?.save(image: image, category: "Other", name: nil, text: text, context: context)
+                return
+            }
+            
+            self?.save(
+                image: image,
+                category: category.trimmingCharacters(in: .whitespacesAndNewlines),
+                name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+                text: text,
+                context: context
+            )
         }.resume()
     }
     
-    private func save(image: UIImage, category: String, text: String, context: ModelContext) {
+    private func save(image: UIImage, category: String, name: String?, text: String, context: ModelContext) {
         DispatchQueue.main.async {
             guard let imageData = image.jpegData(compressionQuality: 0.9) else { return }
-            let screenshot = Screenshot(imageData: imageData, category: category, extractedText: text)
+            let screenshot = Screenshot(imageData: imageData, category: category, name: name, extractedText: text)
             context.insert(screenshot)
             try? context.save()
         }

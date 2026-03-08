@@ -6,7 +6,18 @@ struct ContentView: View {
     @Query private var screenshots: [Screenshot]
     @State private var showImagePicker = false
 
-    let columns = [GridItem(.flexible()), GridItem(.flexible())]
+    let spacing: CGFloat = 16
+    var cardWidth: CGFloat {
+        let screenWidth = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?.screen.bounds.width ?? 390
+        return (screenWidth - spacing * 3) / 2
+    }
+    
+    var columns: [GridItem] {
+        [GridItem(.fixed(cardWidth), alignment: .top),
+         GridItem(.fixed(cardWidth), alignment: .top)]
+    }
 
     var categories: [(name: String, screenshots: [Screenshot])] {
         Dictionary(grouping: screenshots, by: \.category)
@@ -32,15 +43,15 @@ struct ContentView: View {
                     }
                     .padding()
                 } else {
-                    LazyVGrid(columns: columns, spacing: 16) {
+                    LazyVGrid(columns: columns, spacing: spacing) {
                         ForEach(categories, id: \.name) { category in
                             NavigationLink(destination: CategoryView(categoryName: category.name)) {
-                                CategoryCard(name: category.name, screenshots: category.screenshots)
+                                CategoryCard(name: category.name, screenshots: category.screenshots, width: cardWidth)
                             }
                             .buttonStyle(.plain)
                         }
                     }
-                    .padding(16)
+                    .padding(spacing)
                 }
             }
             .navigationTitle("Your Inspiration")
@@ -84,55 +95,26 @@ struct ContentView: View {
 struct CategoryCard: View {
     let name: String
     let screenshots: [Screenshot]
+    let width: CGFloat
 
-    var thumbs: [UIImage] {
-        screenshots.prefix(3).compactMap { $0.image }
+    var thumbnail: UIImage? {
+        screenshots.first?.image
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ZStack {
-                if thumbs.count >= 3, let img = thumbs[safe: 2] {
+            Group {
+                if let img = thumbnail {
                     Image(uiImage: img)
                         .resizable()
                         .scaledToFill()
-                        .frame(maxWidth: .infinity)
-                        .aspectRatio(3/4, contentMode: .fit)
-                        .clipped()
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .rotationEffect(.degrees(-6))
-                        .offset(x: -8, y: 4)
-                        .opacity(0.7)
-                }
-
-                if thumbs.count >= 2, let img = thumbs[safe: 1] {
-                    Image(uiImage: img)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(maxWidth: .infinity)
-                        .aspectRatio(3/4, contentMode: .fit)
-                        .clipped()
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .rotationEffect(.degrees(-3))
-                        .offset(x: -4, y: 2)
-                        .opacity(0.85)
-                }
-
-                if let img = thumbs[safe: 0] {
-                    Image(uiImage: img)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(maxWidth: .infinity)
-                        .aspectRatio(3/4, contentMode: .fit)
-                        .clipped()
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
                 } else {
-                    RoundedRectangle(cornerRadius: 12)
+                    Rectangle()
                         .fill(Color(.secondarySystemBackground))
-                        .aspectRatio(3/4, contentMode: .fit)
                 }
             }
-            .padding(.horizontal, 10)
+            .frame(width: width, height: width)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(name)
@@ -143,15 +125,7 @@ struct CategoryCard: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            .padding(.horizontal, 4)
         }
-        .padding(.bottom, 8)
-    }
-}
-
-extension Collection {
-    subscript(safe index: Index) -> Element? {
-        indices.contains(index) ? self[index] : nil
     }
 }
 

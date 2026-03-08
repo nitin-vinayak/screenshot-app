@@ -7,6 +7,9 @@ struct ContentView: View {
     @Query private var screenshots: [Screenshot]
     @State private var showImagePicker = false
     @State private var showSearch = false
+    @State private var selectedIDs: Set<String> = []
+    @State private var isSelecting = false
+    @State private var navigationPath: [String] = []
 
     let spacing: CGFloat = 16
     var cardWidth: CGFloat {
@@ -23,11 +26,15 @@ struct ContentView: View {
     var categories: [(name: String, screenshots: [Screenshot])] {
         Dictionary(grouping: screenshots, by: \.category)
             .map { (name: $0.key, screenshots: $0.value) }
-            .sorted { $0.screenshots.count > $1.screenshots.count }
+            .sorted {
+                let aLatest = $0.screenshots.map(\.savedAt).max() ?? .distantPast
+                let bLatest = $1.screenshots.map(\.savedAt).max() ?? .distantPast
+                return aLatest > bLatest
+            }
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             ZStack(alignment: .bottom) {
                 ScrollView {
                     if screenshots.isEmpty {
@@ -47,11 +54,29 @@ struct ContentView: View {
                     } else {
                         LazyVGrid(columns: columns, spacing: spacing) {
                             ForEach(categories, id: \.name) { category in
-                                NavigationLink(destination: CategoryView(categoryName: category.name)) {
-                                    CategoryCard(name: category.name, screenshots: category.screenshots, width: cardWidth)
+                                CategoryCard(
+                                    name: category.name,
+                                    screenshots: category.screenshots,
+                                    width: cardWidth,
+                                    selectedIDs: $selectedIDs,
+                                    isSelecting: isSelecting
+                                )
+                                .onTapGesture {
+                                    if isSelecting {
+                                        let allSelected = category.screenshots.allSatisfy { selectedIDs.contains($0.id) }
+                                        if allSelected {
+                                            for ss in category.screenshots { selectedIDs.remove(ss.id) }
+                                        } else {
+                                            for ss in category.screenshots { selectedIDs.insert(ss.id) }
+                                        }
+                                    } else {
+                                        navigationPath.append(category.name)
+                                    }
                                 }
-                                .buttonStyle(.plain)
-                            }
+                                .onLongPressGesture {
+                                    isSelecting = true
+                                    for ss in category.screenshots { selectedIDs.insert(ss.id) }
+                                }                            }
                         }
                         .padding(spacing)
                     }
@@ -59,9 +84,14 @@ struct ContentView: View {
 
                 HStack {
                     Button {
-                        showSearch = true
+                        if isSelecting {
+                            isSelecting = false
+                            selectedIDs.removeAll()
+                        } else {
+                            showSearch = true
+                        }
                     } label: {
-                        Image(systemName: "magnifyingglass")
+                        Image(systemName: isSelecting ? "xmark" : "magnifyingglass")
                             .font(.system(size: 22, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(width: 56, height: 56)
@@ -72,28 +102,45 @@ struct ContentView: View {
 
                     Spacer()
 
-                    Button {
-                        showImagePicker = true
-                    } label: {
-                        Image(systemName: "plus")
-                            .font(.system(size: 22, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .frame(width: 56, height: 56)
-                            .background(Color.black)
-                            .clipShape(Circle())
-                            .shadow(radius: 4)
+                    if isSelecting {
+                        Button {
+                            deleteSelected()
+                        } label: {
+                            Image(systemName: "trash")
+                                .font(.system(size: 22, weight: .semibold))
+                                .foregroundStyle(selectedIDs.isEmpty ? .gray : .red)
+                                .frame(width: 56, height: 56)
+                                .background(Color.white)
+                                .clipShape(Circle())
+                                .shadow(radius: 4)
+                        }
+                        .disabled(selectedIDs.isEmpty)
+                        .transition(.scale.combined(with: .opacity))
+                    } else {
+                        Button {
+                            showImagePicker = true
+                        } label: {
+                            Image(systemName: "plus")
+                                .font(.system(size: 22, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .frame(width: 56, height: 56)
+                                .background(Color.black)
+                                .clipShape(Circle())
+                                .shadow(radius: 4)
+                        }
+                        .transition(.scale.combined(with: .opacity))
                     }
                 }
                 .padding(24)
+                .animation(.spring(response: 0.3), value: isSelecting)
             }
-            .navigationTitle("Your Inspiration")
-            .onAppear {
-                processInbox()
+            .navigationTitle(isSelecting ? "\(selectedIDs.count) selected" : "Your Inspiration")
+            .navigationDestination(for: String.self) { categoryName in
+                CategoryView(categoryName: categoryName)
             }
+            .onAppear { processInbox() }
             .onChange(of: scenePhase) { _, newPhase in
-                if newPhase == .active {
-                    processInbox()
-                }
+                if newPhase == .active { processInbox() }
             }
             .sheet(isPresented: $showImagePicker) {
                 ImagePicker { image in
@@ -103,6 +150,18 @@ struct ContentView: View {
             .sheet(isPresented: $showSearch) {
                 SearchView()
             }
+        }
+    }
+
+    private func deleteSelected() {
+        let toDelete = screenshots.filter { selectedIDs.contains($0.id) }
+        for ss in toDelete {
+            modelContext.delete(ss)
+        }
+        try? modelContext.save()
+        withAnimation(.spring(response: 0.3)) {
+            selectedIDs.removeAll()
+            isSelecting = false
         }
     }
 
@@ -129,25 +188,53 @@ struct CategoryCard: View {
     let name: String
     let screenshots: [Screenshot]
     let width: CGFloat
+    @Binding var selectedIDs: Set<String>
+    let isSelecting: Bool
 
-    var thumbnail: UIImage? {
-        screenshots.first?.image
+    var thumbnail: UIImage? { screenshots.first?.image }
+
+    var isSelected: Bool {
+        !screenshots.isEmpty && screenshots.allSatisfy { selectedIDs.contains($0.id) }
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Group {
-                if let img = thumbnail {
-                    Image(uiImage: img)
-                        .resizable()
-                        .scaledToFill()
-                } else {
-                    Rectangle()
-                        .fill(Color(.secondarySystemBackground))
+            ZStack(alignment: .topTrailing) {
+                Group {
+                    if let img = thumbnail {
+                        Image(uiImage: img)
+                            .resizable()
+                            .scaledToFill()
+                    } else {
+                        Rectangle()
+                            .fill(Color(.secondarySystemBackground))
+                    }
+                }
+                .frame(width: width, height: width)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(isSelecting && isSelected ? Color.red : Color.clear, lineWidth: 3)
+                )
+
+                if isSelecting {
+                    ZStack {
+                        Circle()
+                            .fill(isSelected ? Color.red : Color.white.opacity(0.9))
+                            .frame(width: 24, height: 24)
+                        if isSelected {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(.white)
+                        } else {
+                            Circle()
+                                .stroke(Color.gray.opacity(0.5), lineWidth: 1.5)
+                                .frame(width: 24, height: 24)
+                        }
+                    }
+                    .padding(8)
                 }
             }
-            .frame(width: width, height: width)
-            .clipShape(RoundedRectangle(cornerRadius: 12))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(name)
@@ -166,3 +253,4 @@ struct CategoryCard: View {
     ContentView()
         .modelContainer(for: Screenshot.self, inMemory: true)
 }
+

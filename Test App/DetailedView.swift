@@ -8,7 +8,7 @@ struct DetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 0) {
                 if let image = screenshot.image {
                     Image(uiImage: image)
                         .resizable()
@@ -16,19 +16,31 @@ struct DetailView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 16))
                 }
 
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
                     if let name = screenshot.name {
-                        MetaRow(label: "Name", value: name)
+                        Text(name)
+                            .font(.title3)
+                            .fontWeight(.semibold)
                     }
-                    MetaRow(label: "Category", value: screenshot.category)
-                    MetaRow(label: "Saved", value: screenshot.savedAt.formatted(date: .abbreviated, time: .shortened))
-                    if !screenshot.extractedText.isEmpty {
-                        MetaRow(label: "Text found", value: screenshot.extractedText)
+
+                    HStack(spacing: 6) {
+                        Text(screenshot.category)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+
+                        Text("·")
+                            .foregroundStyle(.secondary)
+
+                        Text(screenshot.savedAt.formatted(date: .abbreviated, time: .omitted))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
                     }
                 }
-                .padding(16)
-                .background(Color(.secondarySystemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .padding(.top, 16)
+                .padding(.horizontal, 4)
+
+                Divider()
+                    .padding(.vertical, 20)
 
                 Button(role: .destructive) {
                     modelContext.delete(screenshot)
@@ -44,20 +56,5 @@ struct DetailView: View {
             .padding(16)
         }
         .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
-struct MetaRow: View {
-    let label: String
-    let value: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(.subheadline)
-        }
     }
 }

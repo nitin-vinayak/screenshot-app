@@ -9,7 +9,7 @@ struct ContentView: View {
     @State private var showSearch = false
     @State private var selectedIDs: Set<String> = []
     @State private var isSelecting = false
-    @State private var navigationPath: [String] = []
+    @State private var navigationPath = NavigationPath()
 
     let spacing: CGFloat = 16
     var cardWidth: CGFloat {
@@ -76,7 +76,8 @@ struct ContentView: View {
                                 .onLongPressGesture {
                                     isSelecting = true
                                     for ss in category.screenshots { selectedIDs.insert(ss.id) }
-                                }                            }
+                                }
+                            }
                         }
                         .padding(spacing)
                     }
@@ -136,7 +137,10 @@ struct ContentView: View {
             }
             .navigationTitle(isSelecting ? "\(selectedIDs.count) selected" : "Your Inspiration")
             .navigationDestination(for: String.self) { categoryName in
-                CategoryView(categoryName: categoryName)
+                CategoryView(categoryName: categoryName, navigationPath: $navigationPath)
+            }
+            .navigationDestination(for: Screenshot.self) { screenshot in
+                DetailView(screenshot: screenshot)
             }
             .onAppear { processInbox() }
             .onChange(of: scenePhase) { _, newPhase in

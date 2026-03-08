@@ -13,7 +13,6 @@ struct ContentView: View {
             .first?.screen.bounds.width ?? 390
         return (screenWidth - spacing * 3) / 2
     }
-    
     var columns: [GridItem] {
         [GridItem(.fixed(cardWidth), alignment: .top),
          GridItem(.fixed(cardWidth), alignment: .top)]
@@ -27,43 +26,51 @@ struct ContentView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                if screenshots.isEmpty {
-                    VStack(spacing: 12) {
-                        Spacer().frame(height: 80)
-                        Image(systemName: "photo.on.rectangle.angled")
-                            .font(.system(size: 48))
-                            .foregroundStyle(.secondary)
-                        Text("No screenshots yet")
-                            .font(.headline)
-                        Text("Share a screenshot to this app to get started")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                    .padding()
-                } else {
-                    LazyVGrid(columns: columns, spacing: spacing) {
-                        ForEach(categories, id: \.name) { category in
-                            NavigationLink(destination: CategoryView(categoryName: category.name)) {
-                                CategoryCard(name: category.name, screenshots: category.screenshots, width: cardWidth)
-                            }
-                            .buttonStyle(.plain)
+            ZStack(alignment: .bottomTrailing) {
+                ScrollView {
+                    if screenshots.isEmpty {
+                        VStack(spacing: 12) {
+                            Spacer().frame(height: 80)
+                            Image(systemName: "photo.on.rectangle.angled")
+                                .font(.system(size: 48))
+                                .foregroundStyle(.secondary)
+                            Text("No screenshots yet")
+                                .font(.headline)
+                            Text("Share a screenshot to this app to get started")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
                         }
+                        .padding()
+                    } else {
+                        LazyVGrid(columns: columns, spacing: spacing) {
+                            ForEach(categories, id: \.name) { category in
+                                NavigationLink(destination: CategoryView(categoryName: category.name)) {
+                                    CategoryCard(name: category.name, screenshots: category.screenshots, width: cardWidth)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(spacing)
                     }
-                    .padding(spacing)
                 }
+
+                Button {
+                    showImagePicker = true
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 56, height: 56)
+                        .background(Color.black)
+                        .clipShape(Circle())
+                        .shadow(radius: 4)
+                }
+                .padding(24)
             }
             .navigationTitle("Your Inspiration")
             .onAppear {
                 processInbox()
-            }
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Test") {
-                        showImagePicker = true
-                    }
-                }
             }
             .sheet(isPresented: $showImagePicker) {
                 ImagePicker { image in

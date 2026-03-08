@@ -5,59 +5,82 @@ struct DetailView: View {
     let screenshot: Screenshot
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @State private var editableName: String = ""
+    @FocusState private var nameIsFocused: Bool
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                if let image = screenshot.image {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFit()
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
-                }
+        ZStack(alignment: .bottom) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        if screenshot.name != nil {
+                            TextField("Name", text: $editableName)
+                                .font(.title3)
+                                .fontWeight(.semibold)
+                                .focused($nameIsFocused)
+                                .onSubmit { saveName() }
+                        }
 
-                VStack(alignment: .leading, spacing: 12) {
-                    if let name = screenshot.name {
-                        MetaRow(label: "Name", value: name)
+                        HStack(spacing: 6) {
+                            Text(screenshot.category)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+
+                            Text("·")
+                                .foregroundStyle(.secondary)
+
+                            Text(screenshot.savedAt.formatted(date: .abbreviated, time: .omitted))
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
                     }
-                    MetaRow(label: "Category", value: screenshot.category)
-                    MetaRow(label: "Saved", value: screenshot.savedAt.formatted(date: .abbreviated, time: .shortened))
-                    if !screenshot.extractedText.isEmpty {
-                        MetaRow(label: "Text found", value: screenshot.extractedText)
+                    .padding(.bottom, 16)
+                    .padding(.horizontal, 4)
+
+                    if let image = screenshot.image {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
                     }
+
+                    Spacer().frame(height: 100)
                 }
                 .padding(16)
-                .background(Color(.secondarySystemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 16))
+            }
 
-                Button(role: .destructive) {
+            HStack {
+                Spacer()
+                Button {
                     modelContext.delete(screenshot)
                     dismiss()
                 } label: {
-                    Text("Delete")
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                        .background(Color(.secondarySystemBackground))
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                    Image(systemName: "trash")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(.red)
+                        .frame(width: 56, height: 56)
+                        .background(Color.white)
+                        .clipShape(Circle())
+                        .shadow(radius: 4)
                 }
             }
-            .padding(16)
+            .padding(24)
         }
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear {
+            editableName = screenshot.name ?? ""
+        }
+        .onChange(of: nameIsFocused) { _, focused in
+            if !focused { saveName() }
+        }
     }
-}
 
-struct MetaRow: View {
-    let label: String
-    let value: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(.subheadline)
+    private func saveName() {
+        let trimmed = editableName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            screenshot.name = trimmed
+            try? modelContext.save()
         }
     }
 }
+

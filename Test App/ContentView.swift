@@ -135,7 +135,7 @@ struct ContentView: View {
                 .padding(24)
                 .animation(.spring(response: 0.3), value: isSelecting)
             }
-            .navigationTitle(isSelecting ? "\(selectedIDs.count) selected" : "Your Inspiration")
+            .navigationTitle(isSelecting ? "\(selectedIDs.count) selected" : "Your Screenshots")
             .navigationDestination(for: String.self) { categoryName in
                 CategoryView(categoryName: categoryName, navigationPath: $navigationPath)
             }

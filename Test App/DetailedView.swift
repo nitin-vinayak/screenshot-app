@@ -1,10 +1,3 @@
-//
-//  DetailedView.swift
-//  Test App
-//
-//  Created by Nitin Vinayak on 08/03/26.
-//
-
 import SwiftUI
 import SwiftData
 
@@ -16,7 +9,6 @@ struct DetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                // Full screenshot image
                 if let image = screenshot.image {
                     Image(uiImage: image)
                         .resizable()
@@ -24,8 +16,10 @@ struct DetailView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 16))
                 }
 
-                // Metadata
                 VStack(alignment: .leading, spacing: 12) {
+                    if let name = screenshot.name {
+                        MetaRow(label: "Name", value: name)
+                    }
                     MetaRow(label: "Category", value: screenshot.category)
                     MetaRow(label: "Saved", value: screenshot.savedAt.formatted(date: .abbreviated, time: .shortened))
                     if !screenshot.extractedText.isEmpty {
@@ -36,7 +30,6 @@ struct DetailView: View {
                 .background(Color(.secondarySystemBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 16))
 
-                // Delete button
                 Button(role: .destructive) {
                     modelContext.delete(screenshot)
                     dismiss()

@@ -26,29 +26,19 @@ struct CategoryView: View {
             HStack(alignment: .top, spacing: 12) {
                 VStack(spacing: 12) {
                     ForEach(leftColumn) { screenshot in
-                        if let image = screenshot.image {
-                            NavigationLink(destination: DetailView(screenshot: screenshot)) {
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                            }
-                            .buttonStyle(.plain)
+                        NavigationLink(destination: DetailView(screenshot: screenshot)) {
+                            ScreenshotCard(screenshot: screenshot)
                         }
+                        .buttonStyle(.plain)
                     }
                 }
 
                 VStack(spacing: 12) {
                     ForEach(rightColumn) { screenshot in
-                        if let image = screenshot.image {
-                            NavigationLink(destination: DetailView(screenshot: screenshot)) {
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                            }
-                            .buttonStyle(.plain)
+                        NavigationLink(destination: DetailView(screenshot: screenshot)) {
+                            ScreenshotCard(screenshot: screenshot)
                         }
+                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -56,6 +46,27 @@ struct CategoryView: View {
         }
         .navigationTitle(categoryName)
         .navigationBarTitleDisplayMode(.large)
+    }
+}
+
+struct ScreenshotCard: View {
+    let screenshot: Screenshot
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let image = screenshot.image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+            if let name = screenshot.name {
+                Text(name)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+        }
     }
 }
 

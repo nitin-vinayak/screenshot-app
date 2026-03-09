@@ -12,7 +12,6 @@ struct SearchView: View {
         return screenshots.filter {
             ($0.name?.lowercased().contains(q) ?? false) ||
             $0.category.lowercased().contains(q) ||
-            $0.extractedText.lowercased().contains(q) ||
             $0.tags.contains { $0.lowercased().contains(q) }
         }
     }
@@ -28,7 +27,7 @@ struct SearchView: View {
                             .foregroundStyle(.secondary)
                         Text("Search your screenshots")
                             .font(.headline)
-                        Text("Search by name, category, or text in the screenshot")
+                        Text("Search by name, category, or tags")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.center)

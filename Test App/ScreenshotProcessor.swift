@@ -115,8 +115,8 @@ class ScreenshotProcessor {
 
             self?.save(
                 image: image,
-                category: category.trimmingCharacters(in: .whitespacesAndNewlines),
-                name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+                category: category.trimmingCharacters(in: .whitespacesAndNewlines).capitalized,
+                name: name.trimmingCharacters(in: .whitespacesAndNewlines).capitalized,
                 text: text,
                 tags: tags,
                 context: context

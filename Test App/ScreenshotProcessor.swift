@@ -59,32 +59,25 @@ class ScreenshotProcessor {
 
         let smallImage = resized(image)
 
-        guard let imageData = smallImage.jpegData(compressionQuality: 0.6),
-              let base64Image = Optional(imageData.base64EncodedString()) else { return }
+        guard let imageData = smallImage.jpegData(compressionQuality: 0.6) else { return }
+        let base64Image = imageData.base64EncodedString()
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let existingCategoriesString = existingCategories.isEmpty ? "none yet" : existingCategories.joined(separator: ", ")
+        let existingCategoriesLine = existingCategories.isEmpty ? "" : "Existing categories: [\(existingCategories.joined(separator: ", "))]. Reuse one only if it is an exact match for the primary subject. Otherwise create a new one.\n"
 
         let prompt = """
-        You are a precise image classification engine. Analyze the provided screenshot and return a JSON object with exactly these fields:
-        - "category": a 1-3 word generic label for the type of content. Reuse one from this existing list if it fits: [\(existingCategoriesString)]. Only create a new category if none of the existing ones are appropriate.
-          Good: "cars", "food", "fashion", "code", "finance"
-          Bad: "screenshot", "image", "photo", "document", "luxury cars"
-        - "name": a 4-6 word specific descriptive title
-        - "tags": an array of 10-20 lowercase strings
+        You are an image classification engine. Look at this image and identify the single most visually prominent subject.
 
-        Tag rules:
-        - Only tag what is visibly present or directly inferable from the image
-        - Include: object names, species, brands, colors, materials, places, people, topics, styles, platform names
-        - Exclude: assumed occasions, emotional interpretations, or context not visible in the image
-        - Prefer specific over generic ("lily" over "flower", "labrador" over "dog", "diptyque" over "perfume brand")
+        \(existingCategoriesLine)Return a JSON object with exactly these fields:
+        - "category": a 1-2 word noun for what the primary subject is. Base this only on what you see, not the setting, background, or any text in the image.
+        - "name": a 4-6 word descriptive title of what is shown
+        - "tags": 10-20 lowercase strings describing what is visibly present — species, colors, brands, materials, objects, places, people, styles. Only tag what you can see. No assumed context.
 
         Return only valid JSON, no markdown, no explanation.
-        Additional text found in screenshot: \(text)
         """
 
         let body: [String: Any] = [
@@ -102,7 +95,7 @@ class ScreenshotProcessor {
                     ]
                 ]
             ]],
-            "max_tokens": 250,
+            "max_tokens": 300,
             "temperature": 0
         ]
 
@@ -154,4 +147,3 @@ class ScreenshotProcessor {
         }
     }
 }
-

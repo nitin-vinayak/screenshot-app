@@ -8,17 +8,19 @@ class Screenshot {
     var category: String
     var name: String?
     var extractedText: String
+    var tags: [String]
     var savedAt: Date
-    
-    init(imageData: Data, category: String = "Other", name: String? = nil, extractedText: String = "") {
+
+    init(imageData: Data, category: String = "Other", name: String? = nil, extractedText: String = "", tags: [String] = []) {
         self.id = UUID().uuidString
         self.imageData = imageData
         self.category = category
         self.name = name
         self.extractedText = extractedText
+        self.tags = tags
         self.savedAt = Date()
     }
-    
+
     var image: UIImage? {
         UIImage(data: imageData)
     }

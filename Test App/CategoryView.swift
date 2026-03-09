@@ -13,9 +13,11 @@ struct CategoryView: View {
     init(categoryName: String, navigationPath: Binding<NavigationPath>) {
         self.categoryName = categoryName
         self._navigationPath = navigationPath
-        _screenshots = Query(filter: #Predicate<Screenshot> {
-            $0.category == categoryName
-        })
+        _screenshots = Query(
+            filter: #Predicate<Screenshot> { $0.category == categoryName },
+            sort: \.savedAt,
+            order: .reverse
+        )
     }
 
     var leftColumn: [Screenshot] {

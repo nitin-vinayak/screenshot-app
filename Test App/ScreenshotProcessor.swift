@@ -11,10 +11,6 @@ class ScreenshotProcessor {
     }()
 
     func process(image: UIImage, context: ModelContext) {
-        let small = resized(image)
-        guard let smallCG = small.cgImage else { return }
-        let text = extractText(from: smallCG)
-
         let existingCategories: [String]
         do {
             let descriptor = FetchDescriptor<Screenshot>()
@@ -24,23 +20,7 @@ class ScreenshotProcessor {
             existingCategories = []
         }
 
-        classify(text: text, image: image, existingCategories: existingCategories, context: context)
-    }
-
-    private func extractText(from cgImage: CGImage) -> String {
-        var result = ""
-        let semaphore = DispatchSemaphore(value: 0)
-
-        let request = VNRecognizeTextRequest { req, _ in
-            result = (req.results as? [VNRecognizedTextObservation])?
-                .compactMap { $0.topCandidates(1).first?.string }
-                .joined(separator: " ") ?? ""
-            semaphore.signal()
-        }
-        request.recognitionLevel = .fast
-        try? VNImageRequestHandler(cgImage: cgImage).perform([request])
-        semaphore.wait()
-        return result
+        classify(image: image, existingCategories: existingCategories, context: context)
     }
 
     private func resized(_ image: UIImage, maxDimension: CGFloat = 448) -> UIImage {
@@ -54,7 +34,7 @@ class ScreenshotProcessor {
         }
     }
 
-    private func classify(text: String, image: UIImage, existingCategories: [String], context: ModelContext) {
+    private func classify(image: UIImage, existingCategories: [String], context: ModelContext) {
         guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else { return }
 
         let smallImage = resized(image)
@@ -107,7 +87,7 @@ class ScreenshotProcessor {
                   let choices = json["choices"] as? [[String: Any]],
                   let message = choices.first?["message"] as? [String: Any],
                   let content = message["content"] as? String else {
-                self?.save(image: image, category: "Other", name: nil, text: text, tags: [], context: context)
+                self?.save(image: image, category: "Other", name: nil, tags: [], context: context)
                 return
             }
 
@@ -121,7 +101,7 @@ class ScreenshotProcessor {
                   let parsed = try? JSONSerialization.jsonObject(with: contentData) as? [String: Any],
                   let category = parsed["category"] as? String,
                   let name = parsed["name"] as? String else {
-                self?.save(image: image, category: "Other", name: nil, text: text, tags: [], context: context)
+                self?.save(image: image, category: "Other", name: nil, tags: [], context: context)
                 return
             }
 
@@ -131,17 +111,16 @@ class ScreenshotProcessor {
                 image: image,
                 category: category.trimmingCharacters(in: .whitespacesAndNewlines).capitalized,
                 name: name.trimmingCharacters(in: .whitespacesAndNewlines).capitalized,
-                text: text,
                 tags: tags,
                 context: context
             )
         }.resume()
     }
 
-    private func save(image: UIImage, category: String, name: String?, text: String, tags: [String], context: ModelContext) {
+    private func save(image: UIImage, category: String, name: String?, tags: [String], context: ModelContext) {
         DispatchQueue.main.async {
             guard let imageData = image.jpegData(compressionQuality: 0.9) else { return }
-            let screenshot = Screenshot(imageData: imageData, category: category, name: name, extractedText: text, tags: tags)
+            let screenshot = Screenshot(imageData: imageData, category: category, name: name, tags: tags)
             context.insert(screenshot)
             try? context.save()
         }

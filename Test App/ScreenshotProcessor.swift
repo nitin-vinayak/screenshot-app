@@ -14,7 +14,17 @@ class ScreenshotProcessor {
         let small = resized(image)
         guard let smallCG = small.cgImage else { return }
         let text = extractText(from: smallCG)
-        classify(text: text, image: image, context: context)
+
+        let existingCategories: [String]
+        do {
+            let descriptor = FetchDescriptor<Screenshot>()
+            let all = try context.fetch(descriptor)
+            existingCategories = Array(Set(all.map { $0.category })).sorted()
+        } catch {
+            existingCategories = []
+        }
+
+        classify(text: text, image: image, existingCategories: existingCategories, context: context)
     }
 
     private func extractText(from cgImage: CGImage) -> String {
@@ -44,7 +54,7 @@ class ScreenshotProcessor {
         }
     }
 
-    private func classify(text: String, image: UIImage, context: ModelContext) {
+    private func classify(text: String, image: UIImage, existingCategories: [String], context: ModelContext) {
         guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else { return }
 
         let smallImage = resized(image)
@@ -57,12 +67,23 @@ class ScreenshotProcessor {
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
+        let existingCategoriesString = existingCategories.isEmpty ? "none yet" : existingCategories.joined(separator: ", ")
+
         let prompt = """
-        Look at this image and return a JSON object with exactly these fields:
-        - "category": 1-2 word label for the type of content
-        - "name": 3-6 word descriptive title
-        - "tags": array of 15 lowercase strings. Think like a search engine indexing this image — include whatever is most relevant: names, objects, topics, places, concepts, disciplines, styles, moods, brands, or anything else a person might type to find it. Don't force categories that don't apply.
-        Return only valid JSON, no markdown.
+        You are a precise image classification engine. Analyze the provided screenshot and return a JSON object with exactly these fields:
+        - "category": a 1-3 word generic label for the type of content. Reuse one from this existing list if it fits: [\(existingCategoriesString)]. Only create a new category if none of the existing ones are appropriate.
+          Good: "cars", "food", "fashion", "code", "finance"
+          Bad: "screenshot", "image", "photo", "document", "luxury cars"
+        - "name": a 4-6 word specific descriptive title
+        - "tags": an array of 10-20 lowercase strings
+
+        Tag rules:
+        - Only tag what is visibly present or directly inferable from the image
+        - Include: object names, species, brands, colors, materials, places, people, topics, styles, platform names
+        - Exclude: assumed occasions, emotional interpretations, or context not visible in the image
+        - Prefer specific over generic ("lily" over "flower", "labrador" over "dog", "diptyque" over "perfume brand")
+
+        Return only valid JSON, no markdown, no explanation.
         Additional text found in screenshot: \(text)
         """
 
@@ -73,7 +94,7 @@ class ScreenshotProcessor {
                 "content": [
                     [
                         "type": "image_url",
-                        "image_url": ["url": "data:image/jpeg;base64,\(base64Image)"]
+                        "image_url": ["url": "data:image/jpeg;base64,\(base64Image)", "detail": "low"]
                     ],
                     [
                         "type": "text",
@@ -133,3 +154,4 @@ class ScreenshotProcessor {
         }
     }
 }
+

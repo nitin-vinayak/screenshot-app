@@ -33,6 +33,13 @@ struct DetailView: View {
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                         }
+
+                        if !screenshot.tags.isEmpty {
+                            Text(screenshot.tags.joined(separator: ", "))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .padding(.top, 4)
+                        }
                     }
                     .padding(.bottom, 16)
                     .padding(.horizontal, 4)

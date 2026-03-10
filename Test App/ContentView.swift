@@ -162,6 +162,7 @@ struct ContentView: View {
                                             for ss in category.screenshots { selectedIDs.insert(ss.id) }
                                         }
                                     } else {
+                                        searchFocused = false
                                         navigationPath.append(category.name)
                                     }
                                 }

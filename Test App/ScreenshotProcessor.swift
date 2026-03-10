@@ -59,7 +59,7 @@ class ScreenshotProcessor {
         \(existingCategoriesLine)Return a JSON object with exactly these fields:
         - "category": a 1-2 word noun for the primary subject
         - "name": a 4-6 word descriptive title of what is shown
-        - "tags": 10-20 lowercase strings describing the content
+        - "summary": two parts separated by a newline. First line: a rich, detailed description of everything in the image — all visible objects, people, text, colors, and setting. For any proper noun (person, brand, landmark, city, country, book, song, product, organisation) name it explicitly with context (e.g. landmark → include city and country). Second line: 10 generic comma-separated lowercase tags covering the key subjects, objects, and themes.
 
         Return only valid JSON, no markdown, no explanation.
         """
@@ -91,7 +91,7 @@ class ScreenshotProcessor {
                   let choices = json["choices"] as? [[String: Any]],
                   let message = choices.first?["message"] as? [String: Any],
                   let content = message["content"] as? String else {
-                self?.save(image: image, category: "Other", name: nil, tags: [], context: context)
+                self?.save(image: image, category: "Other", name: nil, summary: "", context: context)
                 return
             }
 
@@ -105,26 +105,26 @@ class ScreenshotProcessor {
                   let parsed = try? JSONSerialization.jsonObject(with: contentData) as? [String: Any],
                   let category = parsed["category"] as? String,
                   let name = parsed["name"] as? String else {
-                self?.save(image: image, category: "Other", name: nil, tags: [], context: context)
+                self?.save(image: image, category: "Other", name: nil, summary: "", context: context)
                 return
             }
 
-            let tags = parsed["tags"] as? [String] ?? []
+            let summary = (parsed["summary"] as? String) ?? ""
 
             self?.save(
                 image: image,
                 category: category.trimmingCharacters(in: .whitespacesAndNewlines).capitalized,
                 name: name.trimmingCharacters(in: .whitespacesAndNewlines).capitalized,
-                tags: tags,
+                summary: summary,
                 context: context
             )
         }.resume()
     }
 
-    private func save(image: UIImage, category: String, name: String?, tags: [String], context: ModelContext) {
+    private func save(image: UIImage, category: String, name: String?, summary: String, context: ModelContext) {
         DispatchQueue.main.async {
             guard let imageData = image.jpegData(compressionQuality: 0.9) else { return }
-            let screenshot = Screenshot(imageData: imageData, category: category, name: name, tags: tags)
+            let screenshot = Screenshot(imageData: imageData, category: category, name: name, summary: summary)
             context.insert(screenshot)
             try? context.save()
         }

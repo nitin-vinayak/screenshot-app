@@ -30,6 +30,7 @@ struct CategoryView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
+            Color.appBackground.ignoresSafeArea()
             ScrollView {
                 HStack(alignment: .top, spacing: 12) {
                     VStack(spacing: 12) {
@@ -169,12 +170,6 @@ struct ScreenshotCard: View {
                         .padding(8)
                     }
                 }
-            }
-            if let name = screenshot.name {
-                Text(name)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
             }
         }
     }

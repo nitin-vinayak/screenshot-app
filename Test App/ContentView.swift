@@ -61,7 +61,7 @@ struct ContentView: View {
             category.name.lowercased().contains(q) ||
             category.screenshots.contains {
                 ($0.name?.lowercased().contains(q) ?? false) ||
-                $0.tags.contains { $0.lowercased().contains(q) }
+                $0.summary.lowercased().contains(q)
             }
         }
     }
@@ -72,7 +72,7 @@ struct ContentView: View {
         return screenshots.filter {
             ($0.name?.lowercased().contains(q) ?? false) ||
             $0.category.lowercased().contains(q) ||
-            $0.tags.contains { $0.lowercased().contains(q) }
+            $0.summary.lowercased().contains(q)
         }
     }
 

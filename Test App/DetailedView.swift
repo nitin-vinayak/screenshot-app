@@ -38,8 +38,8 @@ struct DetailView: View {
                                 .foregroundStyle(Color.appMuted)
                         }
 
-                        if !screenshot.tags.isEmpty {
-                            Text(screenshot.tags.joined(separator: ", "))
+                        if !screenshot.summary.isEmpty {
+                            Text(screenshot.summary)
                                 .font(.system(size: 12, weight: .regular, design: .serif))
                                 .foregroundStyle(Color.appMuted)
                                 .padding(.top, 2)

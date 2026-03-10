@@ -50,12 +50,16 @@ class ScreenshotProcessor {
         let existingCategoriesLine = existingCategories.isEmpty ? "" : "Existing categories: [\(existingCategories.joined(separator: ", "))]. Reuse one only if it is an exact match for the primary subject. Otherwise create a new one.\n"
 
         let prompt = """
-        You are an image classification engine. Look at this image and identify the single most visually prominent subject.
+        You are a screenshot classification engine for a personal screenshot organizer.
+
+        Classify by what the user most likely saved this screenshot for — their intent and the primary subject they captured. Ask yourself: "what would this person label this screenshot as?"
+
+        Ignore incidental visual elements that aren't the main subject — a sofa in album artwork, a background on a webpage, decorative UI. But if a sofa is being sold on a shopping page, the sofa IS the subject. A conversation screenshot is "Chats" unless the message content is clearly about something more specific.
 
         \(existingCategoriesLine)Return a JSON object with exactly these fields:
-        - "category": a 1-2 word noun for what the primary subject is. Base this only on what you see, not the setting, background, or any text in the image.
+        - "category": a 1-2 word noun for the primary subject
         - "name": a 4-6 word descriptive title of what is shown
-        - "tags": 10-20 lowercase strings describing what is visibly present — species, colors, brands, materials, objects, places, people, styles. Only tag what you can see. No assumed context.
+        - "tags": 10-20 lowercase strings describing the content
 
         Return only valid JSON, no markdown, no explanation.
         """

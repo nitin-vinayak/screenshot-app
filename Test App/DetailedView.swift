@@ -58,15 +58,15 @@ struct DetailView: View {
             }
 
             HStack {
-                if let image = screenshot.image {
+                if screenshot.image != nil {
                     Button {
                         showingShareSheet = true
                     } label: {
                         Image(systemName: "square.and.arrow.up")
                             .font(.system(size: 22, weight: .semibold))
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.white)
                             .frame(width: 56, height: 56)
-                            .background(Color.white)
+                            .background(Color.black)
                             .clipShape(Circle())
                             .shadow(radius: 4)
                     }
@@ -82,7 +82,7 @@ struct DetailView: View {
                         .font(.system(size: 22, weight: .semibold))
                         .foregroundStyle(.red)
                         .frame(width: 56, height: 56)
-                        .background(Color.white)
+                        .background(Color.black)
                         .clipShape(Circle())
                         .shadow(radius: 4)
                 }
@@ -121,6 +121,7 @@ struct ActivityViewController: UIViewControllerRepresentable {
             activityItems: activityItems,
             applicationActivities: nil
         )
+        controller.excludedActivityTypes = []
         return controller
     }
     

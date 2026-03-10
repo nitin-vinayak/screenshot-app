@@ -23,9 +23,10 @@ struct ContentView: View {
         UINavigationBar.appearance().standardAppearance = standard
         UINavigationBar.appearance().scrollEdgeAppearance = scrollEdge
     }
+
     @Query private var screenshots: [Screenshot]
     @State private var showImagePicker = false
-    @State private var showSearch = false
+    @State private var searchQuery = ""
     @State private var selectedIDs: Set<String> = []
     @State private var isSelecting = false
     @State private var navigationPath = NavigationPath()
@@ -52,12 +53,61 @@ struct ContentView: View {
             }
     }
 
+    var filteredCategories: [(name: String, screenshots: [Screenshot])] {
+        guard !searchQuery.isEmpty else { return categories }
+        let q = searchQuery.lowercased()
+        return categories.filter { category in
+            category.name.lowercased().contains(q) ||
+            category.screenshots.contains {
+                ($0.name?.lowercased().contains(q) ?? false) ||
+                $0.tags.contains { $0.lowercased().contains(q) }
+            }
+        }
+    }
+
+    var filteredScreenshots: [Screenshot] {
+        guard !searchQuery.isEmpty else { return [] }
+        let q = searchQuery.lowercased()
+        return screenshots.filter {
+            ($0.name?.lowercased().contains(q) ?? false) ||
+            $0.category.lowercased().contains(q) ||
+            $0.tags.contains { $0.lowercased().contains(q) }
+        }
+    }
+
     var body: some View {
         NavigationStack(path: $navigationPath) {
             ZStack(alignment: .bottom) {
                 Color.appBackground.ignoresSafeArea()
 
+                VStack(spacing: 0) {
+                    // Search bar — outside ScrollView to avoid gesture conflicts
+                    HStack(spacing: 10) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(Color.appMuted)
+                            .font(.system(size: 15))
+                        TextField("Search screenshots…", text: $searchQuery)
+                            .font(.system(size: 15, design: .serif))
+                            .foregroundStyle(Color.appText)
+                        if !searchQuery.isEmpty {
+                            Button { searchQuery = "" } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(Color.appMuted)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 13)
+                    .background(Color.appSurface)
+                    .clipShape(Capsule())
+                    .overlay(Capsule().stroke(Color.borderSoft, lineWidth: 1.5))
+                    .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
+                    .padding(.horizontal, spacing)
+                    .padding(.top, 8)
+                    .padding(.bottom, 12)
+
                 ScrollView {
+
                     if screenshots.isEmpty {
                         VStack(spacing: 16) {
                             ZStack {
@@ -87,8 +137,9 @@ struct ContentView: View {
                                 .foregroundStyle(Color.borderSoft)
                         )
                         .padding()
-                        .padding(.top, 40)
-                    } else {
+                        .padding(.top, 20)
+                    } else if searchQuery.isEmpty {
+                        // Normal category grid
                         LazyVGrid(columns: columns, spacing: spacing) {
                             ForEach(categories, id: \.name) { category in
                                 CategoryCard(
@@ -117,30 +168,93 @@ struct ContentView: View {
                             }
                         }
                         .padding(spacing)
+                    } else {
+                        // Search results
+                        VStack(alignment: .leading, spacing: 24) {
+
+                            // Categories section
+                            if !filteredCategories.isEmpty {
+                                SearchSectionHeader(title: "Categories")
+                                    .padding(.horizontal, spacing)
+                                LazyVGrid(columns: columns, spacing: spacing) {
+                                    ForEach(filteredCategories, id: \.name) { category in
+                                        CategoryCard(
+                                            name: category.name,
+                                            screenshots: category.screenshots,
+                                            width: cardWidth,
+                                            selectedIDs: $selectedIDs,
+                                            isSelecting: false
+                                        )
+                                        .onTapGesture {
+                                            navigationPath.append(category.name)
+                                        }
+                                    }
+                                }
+                                .padding(.horizontal, spacing)
+                            }
+
+                            // Screenshots section
+                            if !filteredScreenshots.isEmpty {
+                                SearchSectionHeader(title: "Screenshots")
+                                    .padding(.horizontal, spacing)
+                                LazyVGrid(columns: columns, spacing: spacing) {
+                                    ForEach(filteredScreenshots) { screenshot in
+                                        SearchScreenshotCard(screenshot: screenshot, width: cardWidth)
+                                            .onTapGesture {
+                                                navigationPath.append(screenshot)
+                                            }
+                                    }
+                                }
+                                .padding(.horizontal, spacing)
+                            }
+
+                            // No results
+                            if filteredCategories.isEmpty && filteredScreenshots.isEmpty {
+                                VStack(spacing: 12) {
+                                    ZStack {
+                                        Circle()
+                                            .fill(Color.greenLight)
+                                            .frame(width: 72, height: 72)
+                                        Image(systemName: "magnifyingglass")
+                                            .font(.system(size: 28))
+                                            .foregroundStyle(Color.forestGreen)
+                                    }
+                                    Text("No results for \"\(searchQuery)\"")
+                                        .font(.system(.subheadline, design: .serif))
+                                        .foregroundStyle(Color.appText)
+                                    Text("Try a different name, category, or tag")
+                                        .font(.system(size: 13))
+                                        .foregroundStyle(Color.appMuted)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, 40)
+                            }
+                        }
+                        .padding(.top, 8)
                     }
+
+                    Spacer().frame(height: 100)
                 }
+                } // end VStack
 
                 HStack {
-                    Button {
-                        if isSelecting {
+                    if isSelecting {
+                        Button {
                             isSelecting = false
                             selectedIDs.removeAll()
-                        } else {
-                            showSearch = true
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .frame(width: 56, height: 56)
+                                .background(Color.forestGreen)
+                                .clipShape(Circle())
+                                .shadow(color: Color.forestGreen.opacity(0.35), radius: 12, x: 0, y: 4)
                         }
-                    } label: {
-                        Image(systemName: isSelecting ? "xmark" : "magnifyingglass")
-                            .font(.system(size: 20, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .frame(width: 56, height: 56)
-                            .background(Color.forestGreen)
-                            .clipShape(Circle())
-                            .shadow(color: Color.forestGreen.opacity(0.35), radius: 12, x: 0, y: 4)
-                    }
+                        .transition(.scale.combined(with: .opacity))
 
-                    Spacer()
+                        Spacer()
 
-                    if isSelecting {
                         Button {
                             deleteSelected()
                         } label: {
@@ -156,6 +270,8 @@ struct ContentView: View {
                         .disabled(selectedIDs.isEmpty)
                         .transition(.scale.combined(with: .opacity))
                     } else {
+                        Spacer()
+
                         Button {
                             showImagePicker = true
                         } label: {
@@ -190,9 +306,6 @@ struct ContentView: View {
                     ScreenshotProcessor.shared.process(image: image, context: modelContext)
                 }
             }
-            .sheet(isPresented: $showSearch) {
-                SearchView()
-            }
         }
     }
 
@@ -226,6 +339,58 @@ struct ContentView: View {
         }
     }
 }
+
+// MARK: - Search Section Header
+
+struct SearchSectionHeader: View {
+    let title: String
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(title.uppercased())
+                .font(.system(size: 11, weight: .semibold, design: .serif))
+                .foregroundStyle(Color.appMuted)
+                .kerning(1.5)
+            Rectangle()
+                .fill(Color.borderSoft)
+                .frame(height: 1)
+        }
+    }
+}
+
+// MARK: - Search Screenshot Card
+
+struct SearchScreenshotCard: View {
+    let screenshot: Screenshot
+    let width: CGFloat
+
+    var body: some View {
+        VStack(alignment: .center, spacing: 10) {
+            Group {
+                if let img = screenshot.image {
+                    Image(uiImage: img)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Color.greenLight
+                }
+            }
+            .frame(width: width, height: width)
+            .clipShape(RoundedRectangle(cornerRadius: 20))
+            .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.borderSoft, lineWidth: 1.5))
+            .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 2)
+
+            if let name = screenshot.name {
+                Text(name)
+                    .font(.system(.caption, design: .serif))
+                    .foregroundStyle(Color.appMuted)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+    }
+}
+
+// MARK: - Category Card
 
 struct CategoryCard: View {
     let name: String

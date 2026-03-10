@@ -31,8 +31,6 @@ struct ContentView: View {
     @State private var selectedIDs: Set<String> = []
     @State private var isSelecting = false
     @State private var navigationPath = NavigationPath()
-    @State private var queryEmbedding: [Float] = []
-    @State private var embeddingTask: Task<Void, Never>? = nil
 
     let spacing: CGFloat = 16
     var cardWidth: CGFloat {
@@ -58,22 +56,6 @@ struct ContentView: View {
 
     var filteredCategories: [(name: String, screenshots: [Screenshot])] {
         guard !searchQuery.isEmpty else { return categories }
-
-        if !queryEmbedding.isEmpty {
-            return categories.compactMap { category -> ((name: String, screenshots: [Screenshot]), Float)? in
-                let withEmbeddings = category.screenshots.filter { !$0.embedding.isEmpty }
-                if withEmbeddings.isEmpty {
-                    let q = searchQuery.lowercased()
-                    return category.name.lowercased().contains(q) ? (category, 0.5) : nil
-                }
-                let avg = ScreenshotProcessor.averageEmbedding(withEmbeddings.map { $0.embedding })
-                let sim = ScreenshotProcessor.cosineSimilarity(queryEmbedding, avg)
-                return sim > 0.25 ? (category, sim) : nil
-            }
-            .sorted { $0.1 > $1.1 }
-            .map { $0.0 }
-        }
-
         let q = searchQuery.lowercased()
         return categories.filter { category in
             category.name.lowercased().contains(q) ||
@@ -86,18 +68,6 @@ struct ContentView: View {
 
     var filteredScreenshots: [Screenshot] {
         guard !searchQuery.isEmpty else { return [] }
-
-        if !queryEmbedding.isEmpty {
-            return screenshots
-                .compactMap { ss -> (Screenshot, Float)? in
-                    guard !ss.embedding.isEmpty else { return nil }
-                    let sim = ScreenshotProcessor.cosineSimilarity(queryEmbedding, ss.embedding)
-                    return sim > 0.25 ? (ss, sim) : nil
-                }
-                .sorted { $0.1 > $1.1 }
-                .map { $0.0 }
-        }
-
         let q = searchQuery.lowercased()
         return screenshots.filter {
             ($0.name?.lowercased().contains(q) ?? false) ||
@@ -336,18 +306,6 @@ struct ContentView: View {
             .onAppear { processInbox() }
             .onChange(of: scenePhase) { _, newPhase in
                 if newPhase == .active { processInbox() }
-            }
-            .onChange(of: searchQuery) { _, newQuery in
-                embeddingTask?.cancel()
-                queryEmbedding = []
-                guard !newQuery.isEmpty else { return }
-                embeddingTask = Task {
-                    try? await Task.sleep(nanoseconds: 400_000_000)
-                    guard !Task.isCancelled else { return }
-                    if let embedding = await ScreenshotProcessor.shared.generateEmbedding(for: newQuery) {
-                        queryEmbedding = embedding
-                    }
-                }
             }
             .sheet(isPresented: $showImagePicker) {
                 ImagePicker { image in

@@ -83,12 +83,11 @@ struct DetailView: View {
                 } label: {
                     Image(systemName: "trash")
                         .font(.system(size: 20, weight: .semibold))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(.white)
                         .frame(width: 56, height: 56)
-                        .background(Color.appSurface)
+                        .background(Color.forestGreen)
                         .clipShape(Circle())
-                        .overlay(Circle().stroke(Color.borderSoft, lineWidth: 1.5))
-                        .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
+                        .shadow(color: Color.forestGreen.opacity(0.35), radius: 12, x: 0, y: 4)
                 }
             }
             .padding(24)

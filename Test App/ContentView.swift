@@ -131,12 +131,11 @@ struct ContentView: View {
                     } label: {
                         Image(systemName: isSelecting ? "xmark" : "magnifyingglass")
                             .font(.system(size: 20, weight: .semibold))
-                            .foregroundStyle(isSelecting ? Color.appMuted : .white)
+                            .foregroundStyle(.white)
                             .frame(width: 56, height: 56)
-                            .background(isSelecting ? Color.appSurface : Color.forestGreen)
+                            .background(Color.forestGreen)
                             .clipShape(Circle())
-                            .overlay(Circle().stroke(Color.borderSoft, lineWidth: isSelecting ? 1.5 : 0))
-                            .shadow(color: isSelecting ? Color.black.opacity(0.04) : Color.forestGreen.opacity(0.35), radius: 12, x: 0, y: 4)
+                            .shadow(color: Color.forestGreen.opacity(0.35), radius: 12, x: 0, y: 4)
                     }
 
                     Spacer()
@@ -147,12 +146,12 @@ struct ContentView: View {
                         } label: {
                             Image(systemName: "trash")
                                 .font(.system(size: 20, weight: .semibold))
-                                .foregroundStyle(selectedIDs.isEmpty ? Color.appMuted : .red)
+                                .foregroundStyle(.white)
                                 .frame(width: 56, height: 56)
-                                .background(Color.appSurface)
+                                .background(Color.forestGreen)
                                 .clipShape(Circle())
-                                .overlay(Circle().stroke(Color.borderSoft, lineWidth: 1.5))
-                                .shadow(color: Color.black.opacity(0.04), radius: 8, x: 0, y: 2)
+                                .shadow(color: Color.forestGreen.opacity(0.35), radius: 12, x: 0, y: 4)
+                                .opacity(selectedIDs.isEmpty ? 0.4 : 1)
                         }
                         .disabled(selectedIDs.isEmpty)
                         .transition(.scale.combined(with: .opacity))

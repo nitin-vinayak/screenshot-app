@@ -149,6 +149,7 @@ struct ContentView: View {
                                     selectedIDs: $selectedIDs,
                                     isSelecting: isSelecting
                                 )
+                                .contentShape(Rectangle())
                                 .onTapGesture {
                                     if isSelecting {
                                         let allSelected = category.screenshots.allSatisfy { selectedIDs.contains($0.id) }

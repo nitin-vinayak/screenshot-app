@@ -30,6 +30,7 @@ struct CategoryView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
+            Color.appBackground.ignoresSafeArea()
             ScrollView {
                 HStack(alignment: .top, spacing: 12) {
                     VStack(spacing: 12) {
@@ -84,12 +85,12 @@ struct CategoryView: View {
                     selectedIDs.removeAll()
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 22, weight: .semibold))
+                        .font(.system(size: 20, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(width: 56, height: 56)
-                        .background(Color.black)
+                        .background(Color.forestGreen)
                         .clipShape(Circle())
-                        .shadow(radius: 4)
+                        .shadow(color: Color.forestGreen.opacity(0.35), radius: 12, x: 0, y: 4)
                 }
 
                 Spacer()
@@ -98,12 +99,13 @@ struct CategoryView: View {
                     deleteSelected()
                 } label: {
                     Image(systemName: "trash")
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(selectedIDs.isEmpty ? .gray : .red)
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(.white)
                         .frame(width: 56, height: 56)
-                        .background(Color.black)
+                        .background(Color.forestGreen)
                         .clipShape(Circle())
-                        .shadow(radius: 4)
+                        .shadow(color: Color.forestGreen.opacity(0.35), radius: 12, x: 0, y: 4)
+                        .opacity(selectedIDs.isEmpty ? 0.4 : 1)
                 }
                 .disabled(selectedIDs.isEmpty)
             }
@@ -169,12 +171,6 @@ struct ScreenshotCard: View {
                         .padding(8)
                     }
                 }
-            }
-            if let name = screenshot.name {
-                Text(name)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
             }
         }
     }

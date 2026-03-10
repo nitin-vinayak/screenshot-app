@@ -11,35 +11,38 @@ struct DetailView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
+            Color.appBackground.ignoresSafeArea()
+
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 6) {
                         if screenshot.name != nil {
-                            TextField("Name", text: $editableName)
-                                .font(.title3)
-                                .fontWeight(.semibold)
+                            TextField("Name", text: $editableName, axis: .vertical)
+                                .font(.system(.title3, design: .serif).weight(.semibold))
+                                .foregroundStyle(Color.appText)
                                 .focused($nameIsFocused)
                                 .onSubmit { saveName() }
+                                .fixedSize(horizontal: false, vertical: true)
                         }
 
                         HStack(spacing: 6) {
                             Text(screenshot.category)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                                .font(.system(size: 13, weight: .medium, design: .serif))
+                                .foregroundStyle(Color.forestGreen)
 
                             Text("·")
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(Color.appMuted)
 
                             Text(screenshot.savedAt.formatted(date: .abbreviated, time: .omitted))
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+                                .font(.system(size: 13, weight: .regular, design: .serif))
+                                .foregroundStyle(Color.appMuted)
                         }
 
                         if !screenshot.tags.isEmpty {
                             Text(screenshot.tags.joined(separator: ", "))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .padding(.top, 4)
+                                .font(.system(size: 12, weight: .regular, design: .serif))
+                                .foregroundStyle(Color.appMuted)
+                                .padding(.top, 2)
                         }
                     }
                     .padding(.bottom, 16)
@@ -49,7 +52,7 @@ struct DetailView: View {
                         Image(uiImage: image)
                             .resizable()
                             .scaledToFit()
-                            .clipShape(RoundedRectangle(cornerRadius: 16))
+                            .clipShape(RoundedRectangle(cornerRadius: 20))
                     }
 
                     Spacer().frame(height: 100)
@@ -63,28 +66,28 @@ struct DetailView: View {
                         showingShareSheet = true
                     } label: {
                         Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 22, weight: .semibold))
+                            .font(.system(size: 20, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(width: 56, height: 56)
-                            .background(Color.black)
+                            .background(Color.forestGreen)
                             .clipShape(Circle())
-                            .shadow(radius: 4)
+                            .shadow(color: Color.forestGreen.opacity(0.35), radius: 12, x: 0, y: 4)
                     }
                 }
-                
+
                 Spacer()
-                
+
                 Button {
                     modelContext.delete(screenshot)
                     dismiss()
                 } label: {
                     Image(systemName: "trash")
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(.red)
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(.white)
                         .frame(width: 56, height: 56)
-                        .background(Color.black)
+                        .background(Color.forestGreen)
                         .clipShape(Circle())
-                        .shadow(radius: 4)
+                        .shadow(color: Color.forestGreen.opacity(0.35), radius: 12, x: 0, y: 4)
                 }
             }
             .padding(24)

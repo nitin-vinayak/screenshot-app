@@ -4,6 +4,25 @@ import SwiftData
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
+
+    init() {
+        // Standard appearance (when scrolled — inline title)
+        let standard = UINavigationBarAppearance()
+        standard.configureWithDefaultBackground()
+        if let descriptor = UIFontDescriptor.preferredFontDescriptor(withTextStyle: .headline).withDesign(.serif) {
+            standard.titleTextAttributes = [.font: UIFont(descriptor: descriptor, size: 17)]
+        }
+
+        // Scroll-edge appearance (at top — large title)
+        let scrollEdge = UINavigationBarAppearance()
+        scrollEdge.configureWithTransparentBackground()
+        if let descriptor = UIFontDescriptor.preferredFontDescriptor(withTextStyle: .largeTitle).withDesign(.serif) {
+            scrollEdge.largeTitleTextAttributes = [.font: UIFont(descriptor: descriptor, size: 34)]
+        }
+
+        UINavigationBar.appearance().standardAppearance = standard
+        UINavigationBar.appearance().scrollEdgeAppearance = scrollEdge
+    }
     @Query private var screenshots: [Screenshot]
     @State private var showImagePicker = false
     @State private var showSearch = false
@@ -36,21 +55,39 @@ struct ContentView: View {
     var body: some View {
         NavigationStack(path: $navigationPath) {
             ZStack(alignment: .bottom) {
+                Color.appBackground.ignoresSafeArea()
+
                 ScrollView {
                     if screenshots.isEmpty {
-                        VStack(spacing: 12) {
-                            Spacer().frame(height: 80)
-                            Image(systemName: "photo.on.rectangle.angled")
-                                .font(.system(size: 48))
-                                .foregroundStyle(.secondary)
+                        VStack(spacing: 16) {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.greenLight)
+                                    .frame(width: 80, height: 80)
+                                Image(systemName: "photo.on.rectangle.angled")
+                                    .font(.system(size: 32))
+                                    .foregroundStyle(Color.forestGreen)
+                            }
                             Text("No screenshots yet")
-                                .font(.headline)
+                                .font(.system(.title3, design: .serif))
+                                .foregroundStyle(Color.appText)
                             Text("Share a screenshot to this app to get started")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .font(.system(size: 14))
+                                .foregroundStyle(Color.appMuted)
                                 .multilineTextAlignment(.center)
+                                .padding(.horizontal, 24)
                         }
+                        .frame(maxWidth: .infinity)
+                        .padding(48)
+                        .background(Color.appSurface)
+                        .clipShape(RoundedRectangle(cornerRadius: 28))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 28)
+                                .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [6]))
+                                .foregroundStyle(Color.borderSoft)
+                        )
                         .padding()
+                        .padding(.top, 40)
                     } else {
                         LazyVGrid(columns: columns, spacing: spacing) {
                             ForEach(categories, id: \.name) { category in
@@ -93,12 +130,12 @@ struct ContentView: View {
                         }
                     } label: {
                         Image(systemName: isSelecting ? "xmark" : "magnifyingglass")
-                            .font(.system(size: 22, weight: .semibold))
+                            .font(.system(size: 20, weight: .semibold))
                             .foregroundStyle(.white)
                             .frame(width: 56, height: 56)
-                            .background(Color.black)
+                            .background(Color.forestGreen)
                             .clipShape(Circle())
-                            .shadow(radius: 4)
+                            .shadow(color: Color.forestGreen.opacity(0.35), radius: 12, x: 0, y: 4)
                     }
 
                     Spacer()
@@ -108,12 +145,13 @@ struct ContentView: View {
                             deleteSelected()
                         } label: {
                             Image(systemName: "trash")
-                                .font(.system(size: 22, weight: .semibold))
-                                .foregroundStyle(selectedIDs.isEmpty ? .gray : .red)
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundStyle(.white)
                                 .frame(width: 56, height: 56)
-                                .background(Color.black)
+                                .background(Color.forestGreen)
                                 .clipShape(Circle())
-                                .shadow(radius: 4)
+                                .shadow(color: Color.forestGreen.opacity(0.35), radius: 12, x: 0, y: 4)
+                                .opacity(selectedIDs.isEmpty ? 0.4 : 1)
                         }
                         .disabled(selectedIDs.isEmpty)
                         .transition(.scale.combined(with: .opacity))
@@ -125,9 +163,9 @@ struct ContentView: View {
                                 .font(.system(size: 22, weight: .semibold))
                                 .foregroundStyle(.white)
                                 .frame(width: 56, height: 56)
-                                .background(Color.black)
+                                .background(Color.forestGreen)
                                 .clipShape(Circle())
-                                .shadow(radius: 4)
+                                .shadow(color: Color.forestGreen.opacity(0.35), radius: 12, x: 0, y: 4)
                         }
                         .transition(.scale.combined(with: .opacity))
                     }
@@ -136,6 +174,7 @@ struct ContentView: View {
                 .animation(.spring(response: 0.3), value: isSelecting)
             }
             .navigationTitle(isSelecting ? "\(selectedIDs.count) selected" : "Your Screenshots")
+            .tint(Color.forestGreen)
             .navigationDestination(for: String.self) { categoryName in
                 CategoryView(categoryName: categoryName, navigationPath: $navigationPath)
             }
@@ -202,7 +241,7 @@ struct CategoryCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             ZStack(alignment: .topTrailing) {
                 Group {
                     if let img = thumbnail {
@@ -210,45 +249,47 @@ struct CategoryCard: View {
                             .resizable()
                             .scaledToFill()
                     } else {
-                        Rectangle()
-                            .fill(Color(.secondarySystemBackground))
+                        Color.greenLight
                     }
                 }
                 .frame(width: width, height: width)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .clipShape(RoundedRectangle(cornerRadius: 20))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(isSelecting && isSelected ? Color.red : Color.clear, lineWidth: 3)
+                    RoundedRectangle(cornerRadius: 20)
+                        .stroke(isSelecting && isSelected ? Color.forestGreen : Color.borderSoft,
+                                lineWidth: isSelecting && isSelected ? 2 : 1.5)
                 )
+                .shadow(color: Color.black.opacity(0.05), radius: 12, x: 0, y: 2)
 
                 if isSelecting {
                     ZStack {
                         Circle()
-                            .fill(isSelected ? Color.red : Color.white.opacity(0.9))
-                            .frame(width: 24, height: 24)
+                            .fill(isSelected ? Color.forestGreen : Color.white.opacity(0.92))
+                            .frame(width: 26, height: 26)
                         if isSelected {
                             Image(systemName: "checkmark")
                                 .font(.system(size: 11, weight: .bold))
                                 .foregroundStyle(.white)
                         } else {
                             Circle()
-                                .stroke(Color.gray.opacity(0.5), lineWidth: 1.5)
-                                .frame(width: 24, height: 24)
+                                .stroke(Color.borderSoft, lineWidth: 1.5)
+                                .frame(width: 26, height: 26)
                         }
                     }
-                    .padding(8)
+                    .padding(10)
                 }
             }
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .center, spacing: 3) {
                 Text(name)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.primary)
-                Text("\(screenshots.count) item\(screenshots.count == 1 ? "" : "s")")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(.system(.subheadline, design: .serif).weight(.semibold))
+                    .foregroundStyle(Color.appText)
+                Text("\(screenshots.count)")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.appMuted)
             }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 2)
         }
     }
 }
@@ -257,4 +298,3 @@ struct CategoryCard: View {
     ContentView()
         .modelContainer(for: Screenshot.self, inMemory: true)
 }
-

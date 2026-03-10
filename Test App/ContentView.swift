@@ -111,7 +111,7 @@ struct ContentView: View {
                                 .font(.system(size: 22, weight: .semibold))
                                 .foregroundStyle(selectedIDs.isEmpty ? .gray : .red)
                                 .frame(width: 56, height: 56)
-                                .background(Color.white)
+                                .background(Color.black)
                                 .clipShape(Circle())
                                 .shadow(radius: 4)
                         }

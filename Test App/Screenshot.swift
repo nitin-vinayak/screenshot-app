@@ -9,15 +9,17 @@ class Screenshot {
     var name: String?
     var summary: String = ""
     var savedAt: Date
+    var embedding: [Float] = []
 
     var image: UIImage? { UIImage(data: imageData) }
 
-    init(imageData: Data, category: String, name: String?, summary: String) {
+    init(imageData: Data, category: String, name: String?, summary: String, embedding: [Float] = []) {
         self.id = UUID().uuidString
         self.imageData = imageData
         self.category = category
         self.name = name
         self.summary = summary
         self.savedAt = Date()
+        self.embedding = embedding
     }
 }

@@ -11,16 +11,91 @@ class ScreenshotProcessor {
     }()
 
     func process(image: UIImage, context: ModelContext) {
-        let existingCategories: [String]
+        let existingScreenshots: [Screenshot]
         do {
             let descriptor = FetchDescriptor<Screenshot>()
-            let all = try context.fetch(descriptor)
-            existingCategories = Array(Set(all.map { $0.category })).sorted()
+            existingScreenshots = try context.fetch(descriptor)
         } catch {
-            existingCategories = []
+            existingScreenshots = []
         }
 
-        classify(image: image, existingCategories: existingCategories, context: context)
+        let existingCategories = Array(Set(existingScreenshots.map { $0.category })).sorted()
+
+        Task {
+            guard let (category, name, summary) = await classify(image: image, existingCategories: existingCategories) else {
+                await MainActor.run { self.save(image: image, category: "Other", name: nil, summary: "", embedding: [], context: context) }
+                return
+            }
+
+            let embedding = await generateEmbedding(for: summary) ?? []
+
+            let resolvedCategory = embedding.isEmpty
+                ? category
+                : resolveCategory(suggested: category, embedding: embedding, existingScreenshots: existingScreenshots)
+
+            await MainActor.run { self.save(image: image, category: resolvedCategory, name: name, summary: summary, embedding: embedding, context: context) }
+        }
+    }
+
+    func generateEmbedding(for text: String) async -> [Float]? {
+        guard let url = URL(string: "https://api.openai.com/v1/embeddings") else { return nil }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body: [String: Any] = [
+            "model": "text-embedding-3-small",
+            "input": text
+        ]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        guard let (data, _) = try? await URLSession.shared.data(for: request),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let dataArray = json["data"] as? [[String: Any]],
+              let embeddingArray = dataArray.first?["embedding"] as? [Double] else {
+            return nil
+        }
+
+        return embeddingArray.map { Float($0) }
+    }
+
+    static func cosineSimilarity(_ a: [Float], _ b: [Float]) -> Float {
+        guard a.count == b.count, !a.isEmpty else { return 0 }
+        let dot = zip(a, b).map(*).reduce(0, +)
+        let magA = sqrt(a.map { $0 * $0 }.reduce(0, +))
+        let magB = sqrt(b.map { $0 * $0 }.reduce(0, +))
+        guard magA > 0, magB > 0 else { return 0 }
+        return dot / (magA * magB)
+    }
+
+    static func averageEmbedding(_ embeddings: [[Float]]) -> [Float] {
+        guard !embeddings.isEmpty, let first = embeddings.first else { return [] }
+        var sum = [Float](repeating: 0, count: first.count)
+        for embedding in embeddings {
+            for (i, v) in embedding.enumerated() { sum[i] += v }
+        }
+        let count = Float(embeddings.count)
+        return sum.map { $0 / count }
+    }
+
+    private func resolveCategory(suggested: String, embedding: [Float], existingScreenshots: [Screenshot]) -> String {
+        let byCategory = Dictionary(grouping: existingScreenshots.filter { !$0.embedding.isEmpty }, by: \.category)
+
+        var bestCategory: String? = nil
+        var bestSimilarity: Float = 0.60
+
+        for (categoryName, screenshots) in byCategory {
+            let avg = ScreenshotProcessor.averageEmbedding(screenshots.map { $0.embedding })
+            let similarity = ScreenshotProcessor.cosineSimilarity(embedding, avg)
+            if similarity > bestSimilarity {
+                bestSimilarity = similarity
+                bestCategory = categoryName
+            }
+        }
+
+        return bestCategory ?? suggested
     }
 
     private func resized(_ image: UIImage, maxDimension: CGFloat = 448) -> UIImage {
@@ -34,12 +109,11 @@ class ScreenshotProcessor {
         }
     }
 
-    private func classify(image: UIImage, existingCategories: [String], context: ModelContext) {
-        guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else { return }
+    private func classify(image: UIImage, existingCategories: [String]) async -> (category: String, name: String, summary: String)? {
+        guard let url = URL(string: "https://api.openai.com/v1/chat/completions") else { return nil }
 
         let smallImage = resized(image)
-
-        guard let imageData = smallImage.jpegData(compressionQuality: 0.6) else { return }
+        guard let imageData = smallImage.jpegData(compressionQuality: 0.6) else { return nil }
         let base64Image = imageData.base64EncodedString()
 
         var request = URLRequest(url: url)
@@ -85,48 +159,40 @@ class ScreenshotProcessor {
 
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, _, _ in
-            guard let data = data,
-                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let choices = json["choices"] as? [[String: Any]],
-                  let message = choices.first?["message"] as? [String: Any],
-                  let content = message["content"] as? String else {
-                self?.save(image: image, category: "Other", name: nil, summary: "", context: context)
-                return
-            }
+        guard let (data, _) = try? await URLSession.shared.data(for: request),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let choices = json["choices"] as? [[String: Any]],
+              let message = choices.first?["message"] as? [String: Any],
+              let content = message["content"] as? String else {
+            return nil
+        }
 
-            let cleaned = content
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-                .replacingOccurrences(of: "```json", with: "")
-                .replacingOccurrences(of: "```", with: "")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleaned = content
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "```json", with: "")
+            .replacingOccurrences(of: "```", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
 
-            guard let contentData = cleaned.data(using: .utf8),
-                  let parsed = try? JSONSerialization.jsonObject(with: contentData) as? [String: Any],
-                  let category = parsed["category"] as? String,
-                  let name = parsed["name"] as? String else {
-                self?.save(image: image, category: "Other", name: nil, summary: "", context: context)
-                return
-            }
+        guard let contentData = cleaned.data(using: .utf8),
+              let parsed = try? JSONSerialization.jsonObject(with: contentData) as? [String: Any],
+              let category = parsed["category"] as? String,
+              let name = parsed["name"] as? String else {
+            return nil
+        }
 
-            let summary = (parsed["summary"] as? String) ?? ""
+        let summary = (parsed["summary"] as? String) ?? ""
 
-            self?.save(
-                image: image,
-                category: category.trimmingCharacters(in: .whitespacesAndNewlines).capitalized,
-                name: name.trimmingCharacters(in: .whitespacesAndNewlines).capitalized,
-                summary: summary,
-                context: context
-            )
-        }.resume()
+        return (
+            category: category.trimmingCharacters(in: .whitespacesAndNewlines).capitalized,
+            name: name.trimmingCharacters(in: .whitespacesAndNewlines).capitalized,
+            summary: summary
+        )
     }
 
-    private func save(image: UIImage, category: String, name: String?, summary: String, context: ModelContext) {
-        DispatchQueue.main.async {
-            guard let imageData = image.jpegData(compressionQuality: 0.9) else { return }
-            let screenshot = Screenshot(imageData: imageData, category: category, name: name, summary: summary)
-            context.insert(screenshot)
-            try? context.save()
-        }
+    private func save(image: UIImage, category: String, name: String?, summary: String, embedding: [Float], context: ModelContext) {
+        guard let imageData = image.jpegData(compressionQuality: 0.9) else { return }
+        let screenshot = Screenshot(imageData: imageData, category: category, name: name, summary: summary, embedding: embedding)
+        context.insert(screenshot)
+        try? context.save()
     }
 }

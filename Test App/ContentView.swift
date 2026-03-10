@@ -27,6 +27,7 @@ struct ContentView: View {
     @Query private var screenshots: [Screenshot]
     @State private var showImagePicker = false
     @State private var searchQuery = ""
+    @FocusState private var searchFocused: Bool
     @State private var selectedIDs: Set<String> = []
     @State private var isSelecting = false
     @State private var navigationPath = NavigationPath()
@@ -89,6 +90,8 @@ struct ContentView: View {
                         TextField("Search screenshots…", text: $searchQuery)
                             .font(.system(size: 15, design: .serif))
                             .foregroundStyle(Color.appText)
+                            .focused($searchFocused)
+                            .onSubmit { searchFocused = false }
                         if !searchQuery.isEmpty {
                             Button { searchQuery = "" } label: {
                                 Image(systemName: "xmark.circle.fill")
@@ -106,7 +109,7 @@ struct ContentView: View {
                     .padding(.top, 8)
                     .padding(.bottom, 12)
 
-                ScrollView {
+                    ScrollView {
 
                     if screenshots.isEmpty {
                         VStack(spacing: 16) {
@@ -236,6 +239,7 @@ struct ContentView: View {
 
                     Spacer().frame(height: 100)
                 }
+                    .scrollDismissesKeyboard(.immediately)
                 } // end VStack
 
                 HStack {

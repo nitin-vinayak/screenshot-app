@@ -6,6 +6,7 @@ struct DetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @State private var editableName: String = ""
+    @State private var showingShareSheet = false
     @FocusState private var nameIsFocused: Bool
 
     var body: some View {
@@ -57,7 +58,22 @@ struct DetailView: View {
             }
 
             HStack {
+                if let image = screenshot.image {
+                    Button {
+                        showingShareSheet = true
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundStyle(.black)
+                            .frame(width: 56, height: 56)
+                            .background(Color.white)
+                            .clipShape(Circle())
+                            .shadow(radius: 4)
+                    }
+                }
+                
                 Spacer()
+                
                 Button {
                     modelContext.delete(screenshot)
                     dismiss()
@@ -74,6 +90,11 @@ struct DetailView: View {
             .padding(24)
         }
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showingShareSheet) {
+            if let image = screenshot.image {
+                ActivityViewController(activityItems: [image])
+            }
+        }
         .onAppear {
             editableName = screenshot.name ?? ""
         }
@@ -89,5 +110,20 @@ struct DetailView: View {
             try? modelContext.save()
         }
     }
+}
+
+// MARK: - Activity View Controller
+struct ActivityViewController: UIViewControllerRepresentable {
+    let activityItems: [Any]
+    
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(
+            activityItems: activityItems,
+            applicationActivities: nil
+        )
+        return controller
+    }
+    
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
